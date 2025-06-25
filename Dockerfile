@@ -6,7 +6,8 @@ RUN curl -sL https://deb.nodesource.com/setup_21.x | bash -
 RUN sudo apt-get install -y nodejs
 ENV LANG en_US.utf8
 # Install bore
-RUN wget -O bore https://github.com/ekzhang/bore/releases/download/v0.5.1/bore-v0.5.1-x86_64-unknown-linux-musl
+RUN wget -O bore.tar.gz https://github.com/ekzhang/bore/releases/download/v0.5.1/bore-v0.5.1-x86_64-unknown-linux-musl.tar.gz
+RUN tar -xzf bore.tar.gz
 RUN chmod +x bore
 # Setup SSH
 RUN mkdir -p /run/sshd
