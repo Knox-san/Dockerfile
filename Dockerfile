@@ -11,20 +11,41 @@ RUN tar -xzf bore.tar.gz
 RUN chmod +x bore
 # Setup SSH
 RUN mkdir -p /run/sshd
+RUN echo 'Port 22' >> /etc/ssh/sshd_config
 RUN echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config 
-RUN echo "PasswordAuthentication yes" >> /etc/ssh/sshd_config
+RUN echo 'PasswordAuthentication yes' >> /etc/ssh/sshd_config
+RUN echo 'ClientAliveInterval 60' >> /etc/ssh/sshd_config
+RUN echo 'ClientAliveCountMax 3' >> /etc/ssh/sshd_config
+RUN echo 'UsePAM yes' >> /etc/ssh/sshd_config
+RUN echo 'X11Forwarding yes' >> /etc/ssh/sshd_config
+RUN echo 'PrintMotd no' >> /etc/ssh/sshd_config
+RUN echo 'AcceptEnv LANG LC_*' >> /etc/ssh/sshd_config
+RUN echo 'Subsystem sftp /usr/lib/openssh/sftp-server' >> /etc/ssh/sshd_config
 RUN echo root:choco|chpasswd
+# Ensure bash is available and set as default shell
+RUN chsh -s /bin/bash root
 # Create a startup script
 RUN echo '#!/bin/bash' > /start
-RUN echo 'echo "Starting bore tunnel..."' >> /start
+RUN echo 'echo "Starting services..."' >> /start
+RUN echo '' >> /start
+RUN echo '# Start bore tunnel' >> /start
 RUN echo './bore local 22 --to bore.pub > bore.log 2>&1 &' >> /start
+RUN echo 'BORE_PID=$!' >> /start
 RUN echo 'sleep 3' >> /start
+RUN echo '' >> /start
+RUN echo '# Display tunnel info' >> /start
 RUN echo 'echo "=== BORE TUNNEL INFO ==="' >> /start
 RUN echo 'cat bore.log' >> /start
 RUN echo 'echo "======================="' >> /start
-RUN echo '/usr/sbin/sshd' >> /start
-# Simple HTTP server to keep the container running and respond to Render's health checks
-RUN echo 'python3 -m http.server ${PORT:-8080} --bind 0.0.0.0' >> /start
+RUN echo '' >> /start
+RUN echo '# Start SSH daemon' >> /start
+RUN echo '/usr/sbin/sshd -D &' >> /start
+RUN echo 'SSH_PID=$!' >> /start
+RUN echo 'echo "SSH daemon started (PID: $SSH_PID)"' >> /start
+RUN echo 'echo "Bore tunnel started (PID: $BORE_PID)"' >> /start
+RUN echo '' >> /start
+RUN echo '# Start HTTP server to keep container alive' >> /start
+RUN echo 'exec python3 -m http.server ${PORT:-8080} --bind 0.0.0.0' >> /start
 RUN chmod 755 /start
 # Expose ports
 EXPOSE 22 80 443 3306 5130 5131 5132 5133 5134 5135 8080 8888
