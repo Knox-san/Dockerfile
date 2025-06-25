@@ -1,39 +1,47 @@
-FROM debian:latest
+FROM ubuntu:22.04
 
-# Install base dependencies
-RUN apt-get update -y && \
-    apt-get upgrade -y && \
-    apt-get install -y sudo curl ffmpeg git locales nano python3-pip screen ssh unzip wget
+# Install dependencies with cleanup
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    bash curl ffmpeg git locales nano openssh-server python3 python3-pip screen unzip wget && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-# Set up locale
-RUN localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8
+# Set up proper shell environment
+RUN localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 && \
+    ln -sf /bin/bash /bin/sh && \
+    mkdir -p /root && \
+    chown root:root /root && \
+    mkdir -p /root/.ssh && \
+    chmod 700 /root/.ssh && \
+    echo 'export TERM=xterm' >> /root/.bashrc && \
+    echo 'cd ~' >> /root/.bashrc && \
+    echo 'echo "Welcome to SSH session"' >> /root/.bashrc
+
 ENV LANG en_US.utf8
 
-# Install Node.js
-RUN curl -sL https://deb.nodesource.com/setup_21.x | bash - && \
-    apt-get install -y nodejs
+# Configure SSH properly
+RUN mkdir -p /var/run/sshd && \
+    groupadd -r sshd && \
+    useradd -r -g sshd -d /nonexistent -s /bin/false sshd && \
+    sed -i 's/#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config && \
+    sed -i 's/#PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config && \
+    echo "root:kaal" | chpasswd
 
-# Set up ngrok
-ARG NGROK_TOKEN
-ENV NGROK_TOKEN=${NGROK_TOKEN}
-RUN wget -O ngrok.zip https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.zip && \
-    unzip ngrok.zip && \
-    rm ngrok.zip
+# Install bore.pub
+RUN wget -O bore.tar.gz https://github.com/ekzhang/bore/releases/download/v0.5.0/bore-v0.5.0-x86_64-unknown-linux-musl.tar.gz && \
+    tar -xzf bore.tar.gz && \
+    mv bore /usr/local/bin/ && \
+    rm bore.tar.gz
 
-# Configure SSH
-RUN mkdir /run/sshd && \
-    echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config && \
-    echo 'PasswordAuthentication yes' >> /etc/ssh/sshd_config && \
-    echo root:choco | chpasswd
-
-# Create startup script
-RUN echo "./ngrok config add-authtoken ${NGROK_TOKEN} &&" >> /start && \
-    echo "./ngrok tcp --region ap 22 &>/dev/null &" >> /start && \
-    echo '/usr/sbin/sshd -D' >> /start && \
+# Start script with proper environment
+RUN echo '#!/bin/bash' > /start && \
+    echo 'mkdir -p /var/run/sshd' >> /start && \
+    echo 'chmod 755 /var/run/sshd' >> /start && \
+    echo 'bore local 22 --to bore.pub &' >> /start && \
+    echo 'python3 -m http.server ${PORT:-10000} --bind 0.0.0.0 &' >> /start && \
+    echo 'exec /usr/sbin/sshd -D -e' >> /start && \
     chmod 755 /start
 
-# Expose ports
-EXPOSE 80 8888 8080 443 5130 5131 5132 5133 5134 5135 3306
-
-# Start command
-CMD /start
+EXPOSE 22 10000
+CMD ["/start"]
