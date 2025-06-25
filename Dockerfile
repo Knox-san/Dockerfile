@@ -29,10 +29,12 @@ RUN mkdir -p /var/run/sshd /var/log && \
     sed -i 's/UsePAM yes/UsePAM no/' /etc/ssh/sshd_config && \
     echo "ClientAliveInterval 60" >> /etc/ssh/sshd_config && \
     echo "ClientAliveCountMax 3" >> /etc/ssh/sshd_config && \
-    echo "LogLevel INFO" >> /etc/ssh/sshd_config && \
-    echo "SyslogFacility AUTHPRIV" >> /etc/ssh/sshd_config && \
+    echo "LogLevel QUIET" >> /etc/ssh/sshd_config && \
+    echo "SyslogFacility DAEMON" >> /etc/ssh/sshd_config && \
     echo "LoginGraceTime 120" >> /etc/ssh/sshd_config && \
     echo "StrictModes no" >> /etc/ssh/sshd_config && \
+    echo "UsePrivilegeSeparation no" >> /etc/ssh/sshd_config && \
+    echo "UseDNS no" >> /etc/ssh/sshd_config && \
     ssh-keygen -A && \
     echo "root:kaal" | chpasswd
 
