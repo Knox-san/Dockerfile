@@ -16,7 +16,12 @@ RUN echo "PasswordAuthentication yes" >> /etc/ssh/sshd_config
 RUN echo root:choco|chpasswd
 # Create a startup script
 RUN echo '#!/bin/bash' > /start
-RUN echo './bore local 22 --to bore.pub &>/dev/null &' >> /start
+RUN echo 'echo "Starting bore tunnel..."' >> /start
+RUN echo './bore local 22 --to bore.pub > bore.log 2>&1 &' >> /start
+RUN echo 'sleep 3' >> /start
+RUN echo 'echo "=== BORE TUNNEL INFO ==="' >> /start
+RUN echo 'cat bore.log' >> /start
+RUN echo 'echo "======================="' >> /start
 RUN echo '/usr/sbin/sshd' >> /start
 # Simple HTTP server to keep the container running and respond to Render's health checks
 RUN echo 'python3 -m http.server ${PORT:-8080} --bind 0.0.0.0' >> /start
