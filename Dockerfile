@@ -11,16 +11,22 @@ RUN tar -xzf bore.tar.gz
 RUN chmod +x bore
 # Setup SSH
 RUN mkdir -p /run/sshd
-RUN echo 'Port 22' >> /etc/ssh/sshd_config
+RUN mkdir -p /var/run/sshd
+RUN ssh-keygen -A
+RUN echo 'Port 22' > /etc/ssh/sshd_config
+RUN echo 'HostKey /etc/ssh/ssh_host_rsa_key' >> /etc/ssh/sshd_config
+RUN echo 'HostKey /etc/ssh/ssh_host_ecdsa_key' >> /etc/ssh/sshd_config
+RUN echo 'HostKey /etc/ssh/ssh_host_ed25519_key' >> /etc/ssh/sshd_config
 RUN echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config 
 RUN echo 'PasswordAuthentication yes' >> /etc/ssh/sshd_config
-RUN echo 'ClientAliveInterval 60' >> /etc/ssh/sshd_config
-RUN echo 'ClientAliveCountMax 3' >> /etc/ssh/sshd_config
+RUN echo 'ChallengeResponseAuthentication no' >> /etc/ssh/sshd_config
 RUN echo 'UsePAM yes' >> /etc/ssh/sshd_config
 RUN echo 'X11Forwarding yes' >> /etc/ssh/sshd_config
 RUN echo 'PrintMotd no' >> /etc/ssh/sshd_config
 RUN echo 'AcceptEnv LANG LC_*' >> /etc/ssh/sshd_config
 RUN echo 'Subsystem sftp /usr/lib/openssh/sftp-server' >> /etc/ssh/sshd_config
+RUN echo 'ClientAliveInterval 60' >> /etc/ssh/sshd_config
+RUN echo 'ClientAliveCountMax 3' >> /etc/ssh/sshd_config
 RUN echo root:choco|chpasswd
 # Ensure bash is available and set as default shell
 RUN chsh -s /bin/bash root
@@ -28,7 +34,24 @@ RUN chsh -s /bin/bash root
 RUN echo '#!/bin/bash' > /start
 RUN echo 'echo "Starting services..."' >> /start
 RUN echo '' >> /start
+RUN echo '# Generate SSH host keys if they do not exist' >> /start
+RUN echo 'if [ ! -f /etc/ssh/ssh_host_rsa_key ]; then' >> /start
+RUN echo '  ssh-keygen -A' >> /start
+RUN echo 'fi' >> /start
+RUN echo '' >> /start
+RUN echo '# Test SSH configuration' >> /start
+RUN echo '/usr/sbin/sshd -t && echo "SSH config OK" || echo "SSH config ERROR"' >> /start
+RUN echo '' >> /start
+RUN echo '# Start SSH daemon first' >> /start
+RUN echo 'echo "Starting SSH daemon..."' >> /start
+RUN echo '/usr/sbin/sshd -D &' >> /start
+RUN echo 'SSH_PID=$!' >> /start
+RUN echo 'sleep 2' >> /start
+RUN echo 'echo "SSH daemon started (PID: $SSH_PID)"' >> /start
+RUN echo 'ps aux | grep sshd' >> /start
+RUN echo '' >> /start
 RUN echo '# Start bore tunnel' >> /start
+RUN echo 'echo "Starting bore tunnel..."' >> /start
 RUN echo './bore local 22 --to bore.pub > bore.log 2>&1 &' >> /start
 RUN echo 'BORE_PID=$!' >> /start
 RUN echo 'sleep 3' >> /start
@@ -37,11 +60,6 @@ RUN echo '# Display tunnel info' >> /start
 RUN echo 'echo "=== BORE TUNNEL INFO ==="' >> /start
 RUN echo 'cat bore.log' >> /start
 RUN echo 'echo "======================="' >> /start
-RUN echo '' >> /start
-RUN echo '# Start SSH daemon' >> /start
-RUN echo '/usr/sbin/sshd -D &' >> /start
-RUN echo 'SSH_PID=$!' >> /start
-RUN echo 'echo "SSH daemon started (PID: $SSH_PID)"' >> /start
 RUN echo 'echo "Bore tunnel started (PID: $BORE_PID)"' >> /start
 RUN echo '' >> /start
 RUN echo '# Start HTTP server to keep container alive' >> /start
